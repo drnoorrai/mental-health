@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MSE Note Generator</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f8fafc;color:#0f172a}.wrap{max-width:1280px;margin:auto;padding:24px}.hero,.card{background:white;border:1px solid #e2e8f0;border-radius:24px;box-shadow:0 1px 3px rgba(15,23,42,.06)}.hero{padding:28px;margin-bottom:20px}.eyebrow{text-transform:uppercase;color:#64748b;letter-spacing:.08em;font-size:13px;font-weight:800}.hero h1{margin:.35rem 0;font-size:clamp(28px,4vw,44px);line-height:1.05}.muted{color:#64748b}.grid{display:grid;grid-template-columns:1.1fr .9fr;gap:20px}.card{padding:22px;margin-bottom:16px}.field{margin:16px 0}.label{font-size:14px;font-weight:800;color:#334155;margin-bottom:8px}.chips{display:flex;flex-wrap:wrap;gap:8px}.chip{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:999px;padding:8px 12px;cursor:pointer;font-size:14px}.chip.active{background:#0f172a;color:white;border-color:#0f172a}textarea,input{width:100%;border:1px solid #cbd5e1;border-radius:14px;padding:12px;font:inherit;background:white}textarea{min-height:78px}details{margin-top:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:10px;color:#475569;font-size:14px}summary{cursor:pointer;font-weight:800;color:#334155}.help{background:#f1f5f9;border-radius:16px;padding:12px;color:#475569;font-size:14px}.sticky{position:sticky;top:20px}.output{height:70vh;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;line-height:1.5;background:#f8fafc}.actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}.btn{border:0;background:#0f172a;color:white;border-radius:14px;padding:10px 14px;font-weight:800;cursor:pointer}.btn.secondary{background:white;color:#0f172a;border:1px solid #cbd5e1}@media(max-width:900px){.grid{grid-template-columns:1fr}.sticky{position:static}.output{height:52vh}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">Consultant clinic sheet</div>
+    <h1>Mental State Examination Note Generator</h1>
+    <p class="muted">Complete the checklist during or after assessment. The generated text converts selected findings into a concise clinical note suitable for copying into a letter. Review and edit clinically before use.</p>
+    <div class="actions"><button class="btn secondary" id="resetBtn">↺ Reset</button></div>
+  </header>
+  <main class="grid"><section id="form"></section><aside class="sticky"><div class="card"><h2>Generated clinical note</h2><p class="muted">Copy this into your letter, then edit as needed.</p><button class="btn" id="copyBtn">Copy note</button><div style="height:12px"></div><textarea id="output" class="output" readonly></textarea></div></aside></main>
+</div>
+<script>
+const sections=[
+{title:'Appearance & Behaviour',fields:[
+{id:'baseline',label:'Baseline change',type:'single',options:['Yes','No']},
+{id:'selfCare',label:'Self-care',type:'single',options:['Good','Neglected','Marked deterioration'],info:'Self-care refers to hygiene, grooming, nutrition and basic personal care. A marked deterioration is especially important if it represents change from baseline.'},
+{id:'dress',label:'Dress',type:'multi',options:['Appropriate','Bizarre','Flamboyant','Disinhibited']},
+{id:'engagement',label:'Engagement',type:'multi',options:['Rapport','Guarded','Suspicious','Hostile']},
+{id:'eyeContact',label:'Eye contact',type:'single',options:['Normal','Avoidant','Intense']},
+{id:'psychomotor',label:'Psychomotor',type:'multi',options:['Normal','Retardation','Agitation','Restless','Catatonic features'],info:'Psychomotor retardation means slowed movement or responses. Agitation/restlessness may reflect anxiety, mania, akathisia, intoxication, withdrawal or delirium. Catatonic features include stupor, mutism, posturing, negativism or waxy flexibility.'},
+{id:'riskObserved',label:'Risk behaviour observed',type:'multi',options:['No risk behaviour observed','Disinhibition','Intrusiveness','Sexual behaviour','Aggression'],info:'Document behaviours observed or reliably reported. Disinhibition means reduced restraint or impulsive behaviour. Intrusiveness means repeatedly crossing others’ boundaries.'},
+{id:'appearanceNotes',label:'Notes',type:'text'}]},
+{title:'Speech',fields:[
+{id:'speechRate',label:'Rate',type:'single',options:['Slow','Normal','Pressured','Pressured but interruptible','Pressured and difficult to interrupt'],info:'Pressured speech is rapid, hard to interrupt and may be associated with mania, hypomania, stimulant use or severe anxiety.'},
+{id:'speechVolume',label:'Volume',type:'single',options:['Quiet','Normal','Loud']},
+{id:'speechQuantity',label:'Quantity',type:'single',options:['Poverty','Normal','Excess']},
+{id:'speechForm',label:'Form',type:'multi',options:['Coherent','Circumstantial','Tangential','Flight of ideas','Loosening','Incoherent','Thought blocking','Perseveration'],info:'Circumstantial speech eventually returns to the point. Tangential speech moves away and does not answer the question. Flight of ideas is rapid shifting between connected ideas. Loosening means links between ideas are hard to follow.'},
+{id:'latency',label:'Latency',type:'single',options:['Increased','Normal']},
+{id:'verbatimSpeech',label:'Verbatim',type:'text'}]},
+{title:'Mood & Affect',helper:'Subjective prompts: How have you been feeling in yourself? 0–10 scale? Any periods of feeling unusually high or low?',fields:[
+{id:'mood',label:'Subjective mood',type:'multi',options:['Low','Euthymic','Elevated','Irritable','Anxious']},
+{id:'moodScore',label:'Mood score /10',type:'short'},
+{id:'affect',label:'Objective affect',type:'multi',options:['Congruent','Incongruent','Reactive','Blunted','Flat','Labile'],info:'Affect is the clinician’s observation of emotional expression. Congruent means it matches the reported mood/content. Blunted means reduced range; flat means near absence; labile means rapidly shifting.'},
+{id:'biological',label:'Biological symptoms',type:'multi',options:['Reduced sleep','Increased sleep','Early morning waking','Reduced need for sleep','Reduced appetite','Increased appetite','Weight change','Reduced energy','Anhedonia','Reduced libido','Reduced concentration']},
+{id:'bipolarFlags',label:'Bipolar flags',type:'multi',options:['Hypersomnia','Hyperphagia','Mood reactivity','Leaden paralysis']},
+{id:'moodNotes',label:'Notes',type:'text'}]},
+{title:'Thought — Form',helper:'Observed, not asked. Key question: does the patient reach the point?',fields:[
+{id:'thoughtForm',label:'Thought form',type:'multi',options:['Linear','Circumstantial','Tangential','Flight of ideas','Loosening of associations','Word salad','Neologisms','Clang associations','Blocking'],info:'Thought form describes the structure of thinking inferred from speech. Linear means goal-directed. Word salad is severely disorganised, near-incomprehensible speech. Neologisms are invented words. Clang associations are links based on sound rather than meaning.'},
+{id:'thoughtFormVerbatim',label:'Verbatim example',type:'text'}]},
+{title:'Thought — Content',helper:'Explore gently: Any worries about your safety or people interfering with you?',fields:[
+{id:'delusions',label:'Delusions',type:'multi',options:['Persecutory','Referential','Grandiose','Nihilistic','Erotomanic','Jealous','Passivity-related'],info:'A delusion is a fixed false belief not in keeping with cultural context. Referential means neutral events feel personally directed at the patient. Nihilistic involves beliefs of non-existence, ruin or bodily decay.'},
+{id:'phenomenology',label:'Phenomenology',type:'multi',options:['Primary','Autochthonous','Delusional perception','Secondary'],info:'Primary delusions arise without understandable psychological context. Autochthonous means fully formed. Delusional perception means a normal perception is given new delusional meaning. Secondary delusions can be understood in relation to mood, hallucinations, trauma or other experiences.'},
+{id:'intensity',label:'Intensity',type:'single',options:['Fixed','Partial doubt','Overvalued idea']},
+{id:'certainty',label:'Certainty / doubt',type:'text'},
+{id:'impactBehaviour',label:'Impact on behaviour',type:'text'}]},
+{title:'Passivity / First-rank Symptoms',fields:[
+{id:'frs',label:'Features',type:'multi',options:['Thought insertion','Thought withdrawal','Thought broadcasting','Made actions','Made feelings'],info:'Passivity symptoms involve experiences that thoughts, feelings or actions are controlled, inserted, removed, broadcast or made by an external force. They are clinically important psychotic phenomena but are not diagnostic alone.'},
+{id:'frsNotes',label:'Notes',type:'text'}]},
+{title:'Perception',helper:'Auditory prompt: Have you heard voices when no one is around?',fields:[
+{id:'auditory',label:'Auditory phenomena',type:'multi',options:['None','Second-person voices','Third-person voices','Commentary','Thought echo','Voices arguing']},
+{id:'voiceFeatures',label:'If voices present',type:'multi',options:['Distress','Frequent','Recognised voice']},
+{id:'commandHallucinations',label:'Command hallucinations',type:'multi',options:['Content elicited','Compulsion','Past compliance','Target identified'],info:'Command hallucinations are voices instructing the patient to do something. Risk assessment should cover content, compulsion, previous compliance and whether a target is identified.'},
+{id:'otherModalities',label:'Other modalities',type:'multi',options:['Visual','Olfactory','Gustatory','Somatic']},
+{id:'perceptionNotes',label:'Notes',type:'text'}]},
+{title:'Cognition',fields:[
+{id:'orientation',label:'Orientation',type:'multi',options:['Time','Place','Person']},
+{id:'attention',label:'Attention',type:'multi',options:['Serial 7s','WORLD backwards']},
+{id:'memory',label:'Memory',type:'multi',options:['Immediate','Short-term','Long-term']},
+{id:'executive',label:'Executive function',type:'multi',options:['Abstract thinking intact','Concrete responses']},
+{id:'cognitiveRedFlags',label:'Red flags',type:'multi',options:['Fluctuating','Rapid decline','Disorientation'],info:'Fluctuation, rapid decline, visual hallucinations or disorientation should prompt consideration of delirium, dementia, intoxication, withdrawal, neurological illness or other organic causes.'}]},
+{title:'Insight',fields:[
+{id:'awareness',label:'Awareness',type:'single',options:['Aware','Partial','None'],info:'Insight is dimensional. Consider awareness of symptoms, ability to relabel experiences as illness-related and willingness to accept treatment. Partial insight should be described rather than reduced to present/absent.'},
+{id:'relabelling',label:'Relabelling',type:'single',options:['Attributes to illness','Externalises']},
+{id:'treatment',label:'Treatment',type:'single',options:['Accepts','Ambivalent','Refuses']},
+{id:'insightNotes',label:'Insight notes',type:'text'}]},
+{title:'Risk',helper:'Suicide prompt: Have you felt life isn’t worth living?',fields:[
+{id:'suicide',label:'Suicide',type:'multi',options:['Passive thoughts','Active ideation','Plan','Intent','Preparation','Rehearsal'],info:'Passive thoughts mean life is not worth living or wishing not to wake up. Active ideation means thoughts of ending one’s life. Plan, intent, preparation and rehearsal increase concern and should be clearly documented.'},
+{id:'protective',label:'Protective factors',type:'text'},
+{id:'violence',label:'Violence',type:'multi',options:['Thoughts to harm others','Command hallucinations','Delusional target']},
+{id:'vulnerability',label:'Vulnerability / safeguarding',type:'multi',options:['Self-neglect','Exploitation','Children at home']}]},
+{title:'Capacity',fields:[
+{id:'capacity',label:'Capacity elements',type:'multi',options:['Understand','Retain','Use/weigh','Communicate'],info:'Capacity is decision-specific and time-specific. The key abilities are to understand, retain, use/weigh relevant information and communicate a decision. Delusions may particularly affect use/weigh.'},
+{id:'capacityNotes',label:'Delusion affecting weighing?',type:'text'}]},
+{title:'Synthesis',fields:[
+{id:'primarySyndrome',label:'Primary syndrome',type:'multi',options:['Psychotic','Affective','Organic','Mixed']},
+{id:'likelyDx',label:'Most likely diagnosis',type:'short'},
+{id:'suicideRiskSummary',label:'Suicide risk summary',type:'short'},
+{id:'violenceRiskSummary',label:'Violence risk summary',type:'short'},
+{id:'vulnerabilityRiskSummary',label:'Vulnerability risk summary',type:'short'},
+{id:'synthesisInsight',label:'Insight summary',type:'short'},
+{id:'closing',label:'Anything important not asked?',type:'text'}]}];
+const state={};sections.flatMap(s=>s.fields).forEach(f=>state[f.id]=f.type==='multi'?[]:'');
+function human(v){return Array.isArray(v)?v.join(', ').toLowerCase():(v||'').trim()}function sent(l,v,s='.'){const t=human(v);return t?`${l} ${t}${s}`:''}function nv(v){return human(v)||'not recorded'}
+function generate(){const d=state,lines=['Mental state examination:'];const add=(h,arr)=>{const t=arr.filter(Boolean).join(' ');if(t)lines.push(`${h}: ${t}`)};add('Appearance and behaviour',[sent('There was',d.baseline?`baseline change: ${d.baseline.toLowerCase()}`:''),sent('Self-care was',d.selfCare),sent('Dress was',d.dress),sent('Engagement was',d.engagement),sent('Eye contact was',d.eyeContact),sent('Psychomotor activity was',d.psychomotor),sent('Observed risk behaviours included',d.riskObserved),d.appearanceNotes&&`Additional appearance/behaviour notes: ${d.appearanceNotes}.`]);add('Speech',[sent('Speech rate was',d.speechRate),sent('volume was',d.speechVolume),sent('quantity was',d.speechQuantity),sent('form was',d.speechForm),sent('latency was',d.latency),d.verbatimSpeech&&`Verbatim example: “${d.verbatimSpeech}”.`]);add('Mood and affect',[sent('Subjectively, mood was',d.mood),d.moodScore&&`Mood was rated ${d.moodScore}/10.`,sent('Objectively, affect was',d.affect),sent('Biological symptoms included',d.biological),sent('Bipolar-spectrum flags included',d.bipolarFlags),d.moodNotes&&`Additional mood/affect notes: ${d.moodNotes}.`]);add('Thought form',[sent('Thought form was',d.thoughtForm),d.thoughtFormVerbatim&&`Verbatim example: “${d.thoughtFormVerbatim}”.`]);add('Thought content',[sent('Thought content included',d.delusions),sent('Phenomenology was',d.phenomenology),sent('Conviction/intensity was',d.intensity),d.certainty&&`Certainty/doubt: ${d.certainty}.`,d.impactBehaviour&&`Impact on behaviour: ${d.impactBehaviour}.`]);add('Passivity phenomena',[sent('Passivity/first-rank symptoms included',d.frs),d.frsNotes&&`Notes: ${d.frsNotes}.`]);add('Perception',[sent('Auditory phenomena',d.auditory,' were recorded.'),sent('Voice-related features included',d.voiceFeatures),sent('Command hallucination assessment identified',d.commandHallucinations),sent('Other perceptual modalities included',d.otherModalities),d.perceptionNotes&&`Additional perception notes: ${d.perceptionNotes}.`]);add('Cognition',[sent('Orientation was assessed for',d.orientation),sent('Attention was assessed using',d.attention),sent('Memory domains assessed included',d.memory),sent('Executive function findings included',d.executive),sent('Cognitive red flags included',d.cognitiveRedFlags)]);add('Insight',[sent('Awareness was',d.awareness),sent('Relabelling style',d.relabelling,' was recorded.'),sent('Attitude to treatment was',d.treatment),d.insightNotes&&`Additional insight notes: ${d.insightNotes}.`]);add('Risk',[sent('Suicide risk features included',d.suicide),d.protective&&`Protective factors: ${d.protective}.`,sent('Violence risk features included',d.violence),sent('Vulnerability/safeguarding concerns included',d.vulnerability)]);add('Capacity',[sent('Capacity elements assessed',d.capacity,' were documented.'),d.capacityNotes&&`Capacity notes: ${d.capacityNotes}.`]);add('Synthesis',[sent('Primary syndrome',d.primarySyndrome,' was considered.'),d.likelyDx&&`Most likely diagnosis: ${d.likelyDx}.`,`Risk summary: suicide — ${nv(d.suicideRiskSummary)}; violence — ${nv(d.violenceRiskSummary)}; vulnerability — ${nv(d.vulnerabilityRiskSummary)}.`,d.synthesisInsight&&`Insight summary: ${d.synthesisInsight}.`,d.closing&&`The patient added: ${d.closing}.`]);document.getElementById('output').value=lines.join('\n\n')}
+function render(){const root=document.getElementById('form');sections.forEach(sec=>{const card=document.createElement('div');card.className='card';card.innerHTML=`<h2>${sec.title}</h2>${sec.helper?`<p class="help">${sec.helper}</p>`:''}`;sec.fields.forEach(f=>{const div=document.createElement('div');div.className='field';div.innerHTML=`<div class="label">${f.label}</div>`;if(f.type==='text'){const el=document.createElement('textarea');el.placeholder='Add clinical detail...';el.oninput=e=>{state[f.id]=e.target.value;generate()};div.appendChild(el)}else if(f.type==='short'){const el=document.createElement('input');el.placeholder='Type here...';el.oninput=e=>{state[f.id]=e.target.value;generate()};div.appendChild(el)}else{const chips=document.createElement('div');chips.className='chips';f.options.forEach(o=>{const b=document.createElement('button');b.type='button';b.className='chip';b.textContent=o;b.onclick=()=>{if(f.type==='multi'){const a=state[f.id];a.includes(o)?state[f.id]=a.filter(x=>x!==o):state[f.id]=[...a,o];b.classList.toggle('active')}else{state[f.id]=state[f.id]===o?'':o;chips.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));if(state[f.id])b.classList.add('active')}generate()};chips.appendChild(b)});div.appendChild(chips)}if(f.info){const det=document.createElement('details');det.innerHTML=`<summary>Clinical note</summary><p>${f.info}</p>`;div.appendChild(det)}card.appendChild(div)});root.appendChild(card)});generate()}render();
+document.getElementById('copyBtn').onclick=async()=>{await navigator.clipboard.writeText(document.getElementById('output').value);const b=document.getElementById('copyBtn');b.textContent='✓ Copied';setTimeout(()=>b.textContent='Copy note',1600)};
+document.getElementById('resetBtn').onclick=()=>location.reload();
+</script>
+</body>
+</html>
