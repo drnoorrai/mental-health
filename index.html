@@ -75,7 +75,7 @@
     .toast{min-height:22px;color:#166534;font-weight:800;font-size:13px}
     .savedFlash{box-shadow:0 0 0 3px #86efac;background:#166534!important;color:#fff!important}
     .reviewHidden{display:none}
-    .workMode .contentBlock,.workMode .reference,.workMode .quickRefCard{display:none}
+    body:not(.studyMode) .contentBlock,body:not(.studyMode) .quickRefCard{display:none}
     .guideIntro{margin:0 0 10px;font-size:13px;color:#64748b}
     .guide{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;margin-top:8px;padding:0;color:#334155}
     .guide summary{padding:10px 11px;display:flex;gap:8px;align-items:center}
@@ -104,7 +104,7 @@
     <p class="muted">Structured MSE documentation with phenomenology prompts, risk formulation cues, and reference-only clinical reminders.</p>
     <div class="actions">
       <button class="btn secondary" id="editModeBtn">Edit mode</button>
-      <button class="btn secondary" id="workModeBtn">Work mode</button>
+      <button class="btn secondary" id="studyModeBtn">Study Mode</button>
       <button class="btn secondary" id="resetAnswersBtn">Reset patient answers</button>
       <button class="btn secondary" id="factoryBtn">Factory reset tool</button>
     </div>
@@ -159,7 +159,7 @@
     <section id="form"></section>
 
     <aside class="sticky">
-      <div class="card quickRefCard">
+      <div class="card">
         <div class="sectionHead">
           <div>
             <h2>Generated clinical note</h2>
@@ -174,7 +174,7 @@
         <div class="toast" id="toast"></div>
         <textarea id="output" class="output" readonly></textarea>
       </div>
-      <div class="card">
+      <div class="card quickRefCard">
         <h2>Quick reference</h2>
         <p class="guideIntro">Open only when needed. Add a reminder if it should appear in the generated note.</p>
         <div id="quickGuides"></div>
@@ -608,7 +608,7 @@ function applyDefaultOverrides(){
   }));
 }
 applyDefaultOverrides();
-let sections=loadSections(),state={},edit=false,workMode=false,noteTemplate=loadTemplate(),reviewOnly=false,guideReminders=[];
+let sections=loadSections(),state={},edit=false,studyMode=false,noteTemplate=loadTemplate(),reviewOnly=false,guideReminders=[];
 const fieldIndex=()=>sections.flatMap((s,si)=>s.fields.map((f,fi)=>({section:s,field:f,si,fi})));
 function byId(items){return Object.fromEntries((items||[]).filter(x=>x&&x.id).map(x=>[x.id,x]))}
 function mergeOptions(def,saved){
@@ -1044,7 +1044,7 @@ function render(keep=false){
   resetState();
   Object.assign(state,old);
   document.body.classList.toggle('editing',edit);
-  document.body.classList.toggle('workMode',workMode);
+  document.body.classList.toggle('studyMode',studyMode);
   editBar.classList.toggle('on',edit);
   sections.forEach((sec,si)=>{
     const selected=hasAnswer(sec);
@@ -1122,7 +1122,7 @@ function validateConfig(p){
 }
 editModeBtn.onclick=()=>{edit=!edit;editModeBtn.textContent=edit?'Editing on':'Edit mode';render(true)};
 closeEditBtn.onclick=()=>{edit=false;editModeBtn.textContent='Edit mode';render(true)};
-workModeBtn.onclick=()=>{workMode=!workMode;workModeBtn.textContent=workMode?'Work mode on':'Work mode';render(true);setToast(workMode?'Work mode on: guidance hidden':'Work mode off: guidance visible')};
+studyModeBtn.onclick=()=>{studyMode=!studyMode;studyModeBtn.textContent=studyMode?'Study Mode on':'Study Mode';render(true);setToast(studyMode?'Study Mode on: guidance visible':'Study Mode off: guidance hidden')};
 addSuggestionBtn.onclick=()=>{const t=suggestionText.value.trim();if(t){const a=gs();a.push(t);ss(a);suggestionText.value='';showSug()}};
 copySuggestionsBtn.onclick=async()=>{await navigator.clipboard.writeText(gs().map((x,i)=>`${i+1}. ${x}`).join('\n')||'No suggestions recorded.');setToast('Suggestions copied')};
 exportBtn.onclick=()=>{configBox.value=JSON.stringify({sections,suggestions:gs(),noteTemplate},null,2);importStatus.textContent='Export ready.'};
