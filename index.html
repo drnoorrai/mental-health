@@ -73,7 +73,9 @@
     .inlineAdd{display:none;gap:8px;margin-top:8px}
     .editing .inlineAdd{display:flex}
     .toast{min-height:22px;color:#166534;font-weight:800;font-size:13px}
+    .savedFlash{box-shadow:0 0 0 3px #86efac;background:#166534!important;color:#fff!important}
     .reviewHidden{display:none}
+    .workMode .contentBlock,.workMode .reference,.workMode .quickRefCard{display:none}
     .guideIntro{margin:0 0 10px;font-size:13px;color:#64748b}
     .guide{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;margin-top:8px;padding:0;color:#334155}
     .guide summary{padding:10px 11px;display:flex;gap:8px;align-items:center}
@@ -102,6 +104,7 @@
     <p class="muted">Structured MSE documentation with phenomenology prompts, risk formulation cues, and reference-only clinical reminders.</p>
     <div class="actions">
       <button class="btn secondary" id="editModeBtn">Edit mode</button>
+      <button class="btn secondary" id="workModeBtn">Work mode</button>
       <button class="btn secondary" id="resetAnswersBtn">Reset patient answers</button>
       <button class="btn secondary" id="factoryBtn">Factory reset tool</button>
     </div>
@@ -156,7 +159,7 @@
     <section id="form"></section>
 
     <aside class="sticky">
-      <div class="card">
+      <div class="card quickRefCard">
         <div class="sectionHead">
           <div>
             <h2>Generated clinical note</h2>
@@ -468,7 +471,7 @@ const DEFAULT_SECTIONS=[
 ];
 
 const clone=x=>JSON.parse(JSON.stringify(x));
-let sections=loadSections(),state={},edit=false,noteTemplate=loadTemplate(),reviewOnly=false,guideReminders=[];
+let sections=loadSections(),state={},edit=false,workMode=false,noteTemplate=loadTemplate(),reviewOnly=false,guideReminders=[];
 const fieldIndex=()=>sections.flatMap((s,si)=>s.fields.map((f,fi)=>({section:s,field:f,si,fi})));
 function byId(items){return Object.fromEntries((items||[]).filter(x=>x&&x.id).map(x=>[x.id,x]))}
 function mergeOptions(def,saved){
@@ -515,9 +518,15 @@ function legacyBlocks(f){
   if(f.reference)out.push({id:id('reference'),type:'reference',position:'after',title:'Reference-only guidance',body:f.reference});
   return out;
 }
+function legacySectionBlocks(sec){
+  return sec.reference?[{id:id('reference'),type:'reference',position:'after',title:'Reference-only guidance',body:sec.reference}]:[];
+}
 function fieldBlocks(f,position){
   const blocks=Array.isArray(f.contentBlocks)?f.contentBlocks:legacyBlocks(f);
   return blocks.filter(b=>(b.position||'after')===position);
+}
+function sectionBlocks(sec){
+  return Array.isArray(sec.referenceBlocks)?sec.referenceBlocks:legacySectionBlocks(sec);
 }
 function renderContentBlock(b){
   const type=b.type||'clinical';
@@ -651,6 +660,15 @@ function addAnswer(f,value){
   saveSections();
   render(true);
 }
+function optionNoteText(f,o){
+  return f.optionNotes?.[o]||applyTemplate(f.note||defaultFieldNote(f),{id:f.id,label:f.label,value:o.toLowerCase(),rawValue:o});
+}
+function generatedPreview(f){
+  const values=noteValues(f);
+  if(values.length>1)return values.map(v=>optionNoteText(f,v)).join(' ');
+  if(values.length===1)return optionNoteText(f,values[0]);
+  return (f.options||[]).slice(0,2).map(o=>optionNoteText(f,o)).join(' ');
+}
 function optionNoteEditor(f){
   const options=f.options||[];
   if(!options.length)return'<p class="muted wide" style="margin:0;font-size:13px">Text and short-answer fields use the main generated note wording above.</p>';
@@ -658,18 +676,15 @@ function optionNoteEditor(f){
   return `<div class="wide"><div class="label">Generated wording for each answer</div><div class="optionWordings">
     ${options.map(o=>`<div class="optionWording">
       <div class="optionName">${esc(o)}</div>
-      <textarea data-option-note="${esc(o)}" placeholder="${esc(applyTemplate(f.note||defaultFieldNote(f),{id:f.id,label:f.label,value:o.toLowerCase(),rawValue:o}))}">${esc(f.optionNotes[o]||'')}</textarea>
+      <textarea data-option-note="${esc(o)}">${esc(optionNoteText(f,o))}</textarea>
     </div>`).join('')}
-  </div><p class="muted" style="margin:6px 0 0;font-size:12px">Use {{value}} for the selected answer in lowercase, or {{rawValue}} for the original capitalisation.</p></div>`;
+  </div><div class="reference" style="margin-top:8px"><strong>Selected-answer preview:</strong> ${esc(generatedPreview(f)||'Select answers to preview combined wording.')}</div><p class="muted" style="margin:6px 0 0;font-size:12px">Use {{value}} for the selected answer in lowercase, or {{rawValue}} for the original capitalisation.</p></div>`;
 }
 function blockEditorList(f){
   const blocks=Array.isArray(f.contentBlocks)?f.contentBlocks:legacyBlocks(f);
   f.contentBlocks=blocks;
   return `<div class="wide"><div class="label">Clinical notes, interview prompts and reference guidance around this answer set</div>
     <div class="row" style="justify-content:flex-start;margin-bottom:8px">
-      <button class="btn small secondary" data-a="addBlock" data-type="clinical" data-pos="before">Add clinical note above</button>
-      <button class="btn small secondary" data-a="addBlock" data-type="interview" data-pos="before">Add interview prompts above</button>
-      <button class="btn small secondary" data-a="addBlock" data-type="reference" data-pos="before">Add reference above</button>
       <button class="btn small secondary" data-a="addBlock" data-type="clinical" data-pos="after">Add clinical note below</button>
       <button class="btn small secondary" data-a="addBlock" data-type="interview" data-pos="after">Add interview prompts below</button>
       <button class="btn small secondary" data-a="addBlock" data-type="reference" data-pos="after">Add reference below</button>
@@ -677,7 +692,7 @@ function blockEditorList(f){
     <div class="blockList">${blocks.length?blocks.map((b,bi)=>`<div class="blockEditor" data-block="${bi}">
       <div class="editGrid">
         <label>Type<select data-bk="type"><option value="clinical" ${b.type==='clinical'?'selected':''}>Clinical note</option><option value="interview" ${b.type==='interview'?'selected':''}>Interview prompts</option><option value="reference" ${b.type==='reference'?'selected':''}>Reference-only guidance</option></select></label>
-        <label>Position<select data-bk="position"><option value="before" ${b.position==='before'?'selected':''}>Above answers</option><option value="after" ${(b.position||'after')==='after'?'selected':''}>Below answers</option></select></label>
+        <label>Placement<input value="Below answers" disabled></label>
         <label class="wide">Heading<input data-bk="title" value="${esc(b.title||blockTitle(b.type))}"></label>
         <label class="wide">Text<textarea data-bk="body" placeholder="${b.type==='interview'?'One prompt per line':'Guidance text'}">${esc(b.body||'')}</textarea></label>
       </div>
@@ -689,6 +704,31 @@ function blockEditorList(f){
       </div>
     </div>`).join(''):'<p class="muted" style="margin:0;font-size:13px">No guidance blocks yet. Add one above or below this answer set.</p>'}</div>
   </div>`;
+}
+function sectionReferenceEditor(sec){
+  const blocks=sectionBlocks(sec);
+  sec.referenceBlocks=blocks;
+  return `<div class="wide"><div class="label">Reference-only guidance below this section title</div>
+    <div class="row" style="justify-content:flex-start;margin-bottom:8px">
+      <button class="btn small secondary" data-a="addSectionReference">Add reference below section title</button>
+    </div>
+    <div class="blockList">${blocks.length?blocks.map((b,bi)=>`<div class="blockEditor" data-section-block="${bi}">
+      <div class="editGrid">
+        <label class="wide">Heading<input data-sbk="title" value="${esc(b.title||'Reference-only guidance')}"></label>
+        <label class="wide">Text<textarea data-sbk="body" placeholder="Reference-only guidance text">${esc(b.body||'')}</textarea></label>
+      </div>
+      <div class="row" style="justify-content:flex-start;margin-top:8px">
+        <button class="btn small secondary" data-a="saveSectionReference" data-bi="${bi}">Save reference</button>
+        <button class="btn small secondary" data-a="sectionReferenceUp" data-bi="${bi}">Move up</button>
+        <button class="btn small secondary" data-a="sectionReferenceDown" data-bi="${bi}">Move down</button>
+        <button class="btn small danger" data-a="delSectionReference" data-bi="${bi}">Delete reference</button>
+      </div>
+    </div>`).join(''):'<p class="muted" style="margin:0;font-size:13px">No section guidance yet. Add a reference block below this section title.</p>'}</div>
+  </div>`;
+}
+function saveFeedback(btn,msg='Saved'){
+  if(btn){btn.classList.add('savedFlash');setTimeout(()=>btn.classList.remove('savedFlash'),650)}
+  setToast(msg);
 }
 function fieldEditor(si,fi,f){
   const d=document.createElement('div');
@@ -709,10 +749,11 @@ function fieldEditor(si,fi,f){
     if(a==='addBlock'){
       f.contentBlocks=f.contentBlocks||[];
       f.contentBlocks.push(makeBlock(e.target.dataset.type,e.target.dataset.pos));
+      saveFeedback(e.target,'Guidance block added');
     }
     if(a==='saveBlock'){
       const bi=Number(e.target.dataset.bi),box=d.querySelector(`[data-block="${bi}"]`),b=f.contentBlocks[bi];
-      if(b&&box){b.type=box.querySelector('[data-bk=type]').value;b.position=box.querySelector('[data-bk=position]').value;b.title=box.querySelector('[data-bk=title]').value||blockTitle(b.type);b.body=box.querySelector('[data-bk=body]').value}
+      if(b&&box){b.type=box.querySelector('[data-bk=type]').value;b.position='after';b.title=box.querySelector('[data-bk=title]').value||blockTitle(b.type);b.body=box.querySelector('[data-bk=body]').value;saveFeedback(e.target,'Guidance block saved')}
     }
     if(a==='blockUp'){const bi=Number(e.target.dataset.bi);if(bi>0){const b=f.contentBlocks.splice(bi,1)[0];f.contentBlocks.splice(bi-1,0,b)}}
     if(a==='blockDown'){const bi=Number(e.target.dataset.bi);if(bi<f.contentBlocks.length-1){const b=f.contentBlocks.splice(bi,1)[0];f.contentBlocks.splice(bi+1,0,b)}}
@@ -726,6 +767,7 @@ function fieldEditor(si,fi,f){
       d.querySelectorAll('[data-option-note]').forEach(el=>{if(cleanText(el.value))f.optionNotes[el.dataset.optionNote]=el.value});
       f.help='';f.info='';f.prompts=[];f.reference='';
       f.flags=d.querySelector('[data-k=flags]').value.split(',').map(x=>x.trim()).filter(Boolean);
+      saveFeedback(e.target,'Answer set saved');
     }
     saveSections();render(true);
   };
@@ -738,11 +780,19 @@ function sectionEditor(si,sec){
     <label>Section title<input id="st${si}" value="${esc(sec.title)}"></label>
     <label>Helper text<input id="sh${si}" value="${esc(sec.helper||'')}"></label>
     <label class="wide">Section note format<textarea id="sf${si}">${esc(sec.summaryTemplate||'{{title}}: {{fields}}')}</textarea></label>
-    <label class="wide">Reference-only guidance<textarea id="sr${si}">${esc(sec.reference||'')}</textarea></label>
+    ${sectionReferenceEditor(sec)}
   </div><div class="row" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-a="save">Save section</button><button class="btn small secondary" data-a="add">Add field</button><button class="btn small secondary" data-a="up">Move up</button><button class="btn small secondary" data-a="down">Move down</button><button class="btn small danger" data-a="del">Delete section</button></div>`;
   t.onclick=e=>{
     const a=e.target.dataset.a;if(!a)return;
-    if(a==='save'){sec.title=document.getElementById('st'+si).value||sec.title;sec.helper=document.getElementById('sh'+si).value;sec.summaryTemplate=document.getElementById('sf'+si).value;sec.reference=document.getElementById('sr'+si).value}
+    if(a==='save'){sec.title=document.getElementById('st'+si).value||sec.title;sec.helper=document.getElementById('sh'+si).value;sec.summaryTemplate=document.getElementById('sf'+si).value;sec.reference='';saveFeedback(e.target,'Section saved')}
+    if(a==='addSectionReference'){sec.referenceBlocks=sec.referenceBlocks||[];sec.referenceBlocks.push({id:id('reference'),type:'reference',position:'after',title:'Reference-only guidance',body:''});saveFeedback(e.target,'Reference added')}
+    if(a==='saveSectionReference'){
+      const bi=Number(e.target.dataset.bi),box=t.querySelector(`[data-section-block="${bi}"]`),b=sec.referenceBlocks[bi];
+      if(b&&box){b.type='reference';b.position='after';b.title=box.querySelector('[data-sbk=title]').value||'Reference-only guidance';b.body=box.querySelector('[data-sbk=body]').value;saveFeedback(e.target,'Reference saved')}
+    }
+    if(a==='sectionReferenceUp'){const bi=Number(e.target.dataset.bi);if(bi>0){const b=sec.referenceBlocks.splice(bi,1)[0];sec.referenceBlocks.splice(bi-1,0,b)}}
+    if(a==='sectionReferenceDown'){const bi=Number(e.target.dataset.bi);if(bi<sec.referenceBlocks.length-1){const b=sec.referenceBlocks.splice(bi,1)[0];sec.referenceBlocks.splice(bi+1,0,b)}}
+    if(a==='delSectionReference'&&confirm('Delete this section reference?'))sec.referenceBlocks.splice(Number(e.target.dataset.bi),1);
     if(a==='add'){const l='New answer set';sec.fields.push({id:id(l),label:l,type:'multi',options:['Option 1'],note:'{{label}}: {{value}}.'})}
     if(a==='up'&&si>0){sections.splice(si,1);sections.splice(si-1,0,sec)}
     if(a==='down'&&si<sections.length-1){sections.splice(si,1);sections.splice(si+1,0,sec)}
@@ -757,6 +807,7 @@ function render(keep=false){
   resetState();
   Object.assign(state,old);
   document.body.classList.toggle('editing',edit);
+  document.body.classList.toggle('workMode',workMode);
   editBar.classList.toggle('on',edit);
   sections.forEach((sec,si)=>{
     const selected=hasAnswer(sec);
@@ -765,7 +816,7 @@ function render(keep=false){
     c.className='card'+(hidden?' reviewHidden':'');
     c.id='sec_'+si;
     c.innerHTML=`<div class="sectionHead"><div><h2>${esc(sec.title)}</h2>${sec.helper?`<p class="help">${esc(sec.helper)}</p>`:''}</div><div class="sectionTools">${selected?'<span class="pill">selected</span>':''}</div></div>`;
-    if(sec.reference){const det=document.createElement('details');det.className='reference';det.innerHTML=`<summary>Reference-only guidance</summary><p>${esc(sec.reference)}</p>`;c.appendChild(det)}
+    sectionBlocks(sec).forEach(b=>c.insertAdjacentHTML('beforeend',renderContentBlock(b)));
     if(edit)c.appendChild(sectionEditor(si,sec));
     sec.fields.forEach((f,fi)=>{
       const d=document.createElement('div');
@@ -834,6 +885,7 @@ function validateConfig(p){
 }
 editModeBtn.onclick=()=>{edit=!edit;editModeBtn.textContent=edit?'Editing on':'Edit mode';render(true)};
 closeEditBtn.onclick=()=>{edit=false;editModeBtn.textContent='Edit mode';render(true)};
+workModeBtn.onclick=()=>{workMode=!workMode;workModeBtn.textContent=workMode?'Work mode on':'Work mode';render(true);setToast(workMode?'Work mode on: guidance hidden':'Work mode off: guidance visible')};
 addSuggestionBtn.onclick=()=>{const t=suggestionText.value.trim();if(t){const a=gs();a.push(t);ss(a);suggestionText.value='';showSug()}};
 copySuggestionsBtn.onclick=async()=>{await navigator.clipboard.writeText(gs().map((x,i)=>`${i+1}. ${x}`).join('\n')||'No suggestions recorded.');setToast('Suggestions copied')};
 exportBtn.onclick=()=>{configBox.value=JSON.stringify({sections,suggestions:gs(),noteTemplate},null,2);importStatus.textContent='Export ready.'};
