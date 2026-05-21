@@ -612,6 +612,10 @@ function mergeOptions(def,saved){
   [...(def.options||[]),...(saved.options||[])].forEach(x=>{if(x&&!out.includes(x))out.push(x)});
   return out;
 }
+function cleanMergedOptions(fieldId,options){
+  if(fieldId==='baseline')return (DEFAULT_SECTIONS[0].fields.find(f=>f.id==='baseline')?.options||options).slice();
+  return options.filter(o=>!(fieldId==='psychomotor'&&o==='Retardation'));
+}
 function normalizeSections(raw){
   if(!Array.isArray(raw))return clone(DEFAULT_SECTIONS);
   const byTitle=Object.fromEntries(raw.map(s=>[s.title,s]));
@@ -620,7 +624,7 @@ function normalizeSections(raw){
     const savedFields=byId(saved.fields);
     const fields=def.fields.map(f=>{
       const savedField=savedFields[f.id]||{};
-      const options=mergeOptions(f,savedField).filter(o=>!(f.id==='psychomotor'&&o==='Retardation'));
+      const options=cleanMergedOptions(f.id,mergeOptions(f,savedField));
       return {
         ...f,
         ...savedField,
