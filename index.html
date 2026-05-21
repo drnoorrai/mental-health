@@ -471,6 +471,72 @@ const DEFAULT_SECTIONS=[
 ];
 
 const clone=x=>JSON.parse(JSON.stringify(x));
+const FIELD_DEFAULT_OVERRIDES={
+  selfCare:{
+    optionNotes:{
+      Good:'Self-care appeared good.',
+      Reduced:'Self-care appeared reduced.',
+      Neglected:'Self-care appeared neglected.',
+      'Marked deterioration':'There was a marked deterioration in self-care.'
+    }
+  },
+  dress:{
+    optionNotes:{
+      Appropriate:'Dress was appropriate.',
+      Bizarre:'Dress was bizarre.',
+      Flamboyant:'Dress was flamboyant.',
+      Disinhibited:'Dress was disinhibited.',
+      Clashing:'Dress was clashing.',
+      Unkempt:'Dress was unkempt.'
+    },
+    comboNotes:{
+      'appropriate||bizarre':'Dress was appropriate although bizarre.',
+      'appropriate||bizarre||flamboyant':'Dress was appropriate, although somewhat bizarre and flamboyant.'
+    }
+  },
+  psychomotor:{
+    options:['Normal','Intellectual Disability','Agitation','Restless','Pacing','Catatonic features','Posturing','Mutism'],
+    optionNotes:{
+      Normal:'Psychomotor activity was normal.',
+      'Intellectual Disability':'The patient showed signs of intellectual disability.',
+      Agitation:'The patient was agitated.',
+      Restless:'The patient was restless.',
+      Pacing:'The patient was pacing.',
+      'Catatonic features':'The patient had catatonic features.',
+      Posturing:'The patient was posturing.',
+      Mutism:'The patient was mute.'
+    },
+    comboNotes:{
+      'agitation||catatonic features':'The patient was agitated and had catatonic features.',
+      'intellectual disability||agitation||catatonic features':'The patient showed signs of intellectual disability, was agitated, and had catatonic features.'
+    }
+  },
+  speechForm:{
+    optionNotes:{
+      Coherent:'Speech and thought form were coherent.',
+      Circumstantial:'Speech and thought form were circumstantial.',
+      Tangential:'Speech and thought form were tangential.',
+      'Flight of ideas':'Speech and thought form showed flight of ideas.',
+      'Loosening of associations':'Speech and thought form showed loosening of associations.',
+      Incoherent:'Speech and thought form was incoherent.',
+      'Thought blocking':'Speech and thought form showed thought blocking.',
+      Perseveration:'Speech and thought form showed perseveration.',
+      Echolalia:'Speech and thought form showed echolalia.',
+      Alogia:'Speech and thought form showed alogia.',
+      'Poverty of content':'Speech and thought form showed poverty of content.'
+    },
+    comboNotes:{
+      'circumstantial||tangential||flight of ideas':'Speech and thought form showed circumstantiality, tangentiality, and flight of ideas.'
+    }
+  }
+};
+function applyDefaultOverrides(){
+  DEFAULT_SECTIONS.forEach(sec=>sec.fields.forEach(f=>{
+    const o=FIELD_DEFAULT_OVERRIDES[f.id];
+    if(o)Object.assign(f,o);
+  }));
+}
+applyDefaultOverrides();
 let sections=loadSections(),state={},edit=false,workMode=false,noteTemplate=loadTemplate(),reviewOnly=false,guideReminders=[];
 const fieldIndex=()=>sections.flatMap((s,si)=>s.fields.map((f,fi)=>({section:s,field:f,si,fi})));
 function byId(items){return Object.fromEntries((items||[]).filter(x=>x&&x.id).map(x=>[x.id,x]))}
@@ -487,7 +553,14 @@ function normalizeSections(raw){
     const savedFields=byId(saved.fields);
     const fields=def.fields.map(f=>{
       const savedField=savedFields[f.id]||{};
-      return {...f,...savedField,options:mergeOptions(f,savedField)};
+      const options=mergeOptions(f,savedField).filter(o=>!(f.id==='psychomotor'&&o==='Retardation'));
+      return {
+        ...f,
+        ...savedField,
+        options,
+        optionNotes:{...(f.optionNotes||{}),...(savedField.optionNotes||{})},
+        comboNotes:{...(f.comboNotes||{}),...(savedField.comboNotes||{})}
+      };
     });
     const extras=(saved.fields||[]).filter(f=>f&&f.id&&!fields.some(x=>x.id===f.id));
     return {...def,...saved,fields:[...fields,...extras]};
@@ -540,6 +613,50 @@ function renderContentBlock(b){
   </details>`;
 }
 const NEGATIVE_VALUES=new Set(['none','none identified','no red flags','no current ideation','no obvious risk of violence','no safeguarding concerns presently','no clear change']);
+const FIELD_COMBO_COPY={
+  dress:{template:'Dress was {{value}}.'},
+  engagement:{template:'Engagement was {{value}}.'},
+  psychomotor:{
+    template:'Psychomotor activity was characterised by {{value}}.',
+    phrases:{Normal:'normal activity','Intellectual Disability':'signs of intellectual disability',Agitation:'agitation',Restless:'restlessness',Pacing:'pacing','Catatonic features':'catatonic features',Posturing:'posturing',Mutism:'mutism'}
+  },
+  riskObserved:{template:'Observed risk behaviours included {{value}}.'},
+  speechForm:{
+    template:'Speech and thought form showed {{value}}.',
+    phrases:{Coherent:'coherence',Circumstantial:'circumstantiality',Tangential:'tangentiality','Flight of ideas':'flight of ideas','Loosening of associations':'loosening of associations',Incoherent:'incoherence','Thought blocking':'thought blocking',Perseveration:'perseveration',Echolalia:'echolalia',Alogia:'alogia','Poverty of content':'poverty of content'}
+  },
+  mood:{template:'Subjectively, mood was {{value}}.'},
+  affect:{template:'Objectively, affect was {{value}}.'},
+  biological:{template:'Biological symptoms and medication side effects included {{value}}.'},
+  bipolarFlags:{template:'Bipolar-spectrum features included {{value}}.'},
+  thoughtForm:{
+    template:'Thought form was notable for {{value}}.',
+    phrases:{Linear:'linear form',Circumstantial:'circumstantiality',Tangential:'tangentiality','Flight of ideas':'flight of ideas','Loosening of associations':'loosening of associations','Word salad':'word salad',Neologisms:'neologisms','Clang associations':'clang associations',Blocking:'blocking',Perseveration:'perseveration',Echolalia:'echolalia',Alogia:'alogia','Poverty of content':'poverty of content'}
+  },
+  delusions:{template:'Thought content included {{value}}.'},
+  phenomenology:{template:'Belief phenomenology included {{value}}.'},
+  negativeTriad:{template:'Depressive thought content included {{value}}.'},
+  frs:{template:'Passivity and first-rank symptoms included {{value}}.'},
+  auditory:{template:'Auditory phenomena included {{value}}.'},
+  voiceFeatures:{template:'Voice-related features included {{value}}.'},
+  commandHallucinations:{template:'Command hallucination assessment identified {{value}}.'},
+  otherModalities:{template:'Other perceptual modalities included {{value}}.'},
+  perceptionDifferentiation:{template:'Perceptual experiences were considered in relation to {{value}}.'},
+  orientation:{template:'Orientation findings included {{value}}.'},
+  attention:{template:'Attention was assessed using {{value}}.'},
+  memory:{template:'Memory findings included {{value}}.'},
+  executive:{template:'Executive function findings included {{value}}.'},
+  cognitiveRedFlags:{template:'Organic cognitive red flags included {{value}}.'},
+  suicide:{template:'Suicide and self-harm risk features included {{value}}.'},
+  violence:{template:'Violence risk features included {{value}}.'},
+  vulnerability:{template:'Vulnerability and safeguarding concerns included {{value}}.'},
+  capacity:{template:'Capacity elements assessed included {{value}}.'},
+  differentialPattern:{template:'Differential patterns considered included {{value}}.'},
+  organicRedFlags:{template:'Organic red flags included {{value}}.'},
+  workupPrompts:{template:'Workup prompts documented included {{value}}.'},
+  referenceReminders:{template:'Reference-only reminders considered included {{value}}.'},
+  primarySyndrome:{template:'The primary syndrome considered was {{value}}.'}
+};
 const NEGATIVE_NOTES={
   riskObserved:'No observed risk behaviours.',
   biological:'No biological symptoms or medication side effects were reported.',
@@ -585,8 +702,11 @@ function orderedValues(f,values){
     return ai-bi;
   });
 }
-function phraseList(values){
-  const list=values.map(v=>cleanText(v).toLowerCase()).filter(Boolean);
+function phraseFor(f,v){
+  return FIELD_COMBO_COPY[f.id]?.phrases?.[v]||cleanText(v).toLowerCase();
+}
+function phraseList(f,values){
+  const list=values.map(v=>phraseFor(f,v)).filter(Boolean);
   if(list.length<3)return list.join(' and ');
   return `${list.slice(0,-1).join(', ')}, and ${list.at(-1)}`;
 }
@@ -600,10 +720,10 @@ function comboNoteText(f,values){
   const key=comboKeyFor(f,ordered);
   const saved=f.comboNotes?.[key];
   if(cleanText(saved))return saved;
-  return applyTemplate(f.note||defaultFieldNote(f),{
+  return applyTemplate(FIELD_COMBO_COPY[f.id]?.template||f.note||defaultFieldNote(f),{
     id:f.id,
     label:f.label,
-    value:phraseList(ordered),
+    value:phraseList(f,ordered),
     rawValue:rawPhraseList(ordered)
   });
 }
