@@ -38,6 +38,16 @@
     summary{cursor:pointer;font-weight:850;color:#334155}
     .help,.reference,.promptBox{background:#f1f5f9;border-radius:8px;padding:10px;color:#475569;font-size:14px;margin-top:8px}
     .reference{border-left:4px solid var(--teal)}
+    .contentBlock{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;margin:8px 0;padding:10px;color:#475569;font-size:14px}
+    .contentBlock.clinical{border-left:4px solid var(--blue)}
+    .contentBlock.interview{border-left:4px solid var(--amber)}
+    .contentBlock.referenceBlock{border-left:4px solid var(--teal)}
+    .contentBlock summary{display:flex;gap:8px;align-items:center}
+    .blockEditor{border:1px solid #dbe3ee;border-radius:8px;background:#fff;padding:10px;margin-top:8px}
+    .blockList{display:grid;gap:10px}
+    .optionWordings{display:grid;gap:8px}
+    .optionWording{display:grid;grid-template-columns:minmax(120px,180px) 1fr;gap:8px;align-items:start}
+    .optionName{font-size:13px;font-weight:850;color:#334155;padding-top:9px}
     .flagRow{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
     .flag{font-size:11px;font-weight:800;border-radius:999px;padding:3px 7px;background:#e2e8f0;color:#334155;text-transform:uppercase}
     .flag.risk{background:#fee2e2;color:#991b1b}.flag.organic{background:#fef3c7;color:#92400e}.flag.mania{background:#dbeafe;color:#1d4ed8}.flag.psychosis{background:#ede9fe;color:#6d28d9}.flag.capacity{background:#dcfce7;color:#166534}
@@ -81,7 +91,7 @@
     .guideSource a{color:#0f4c81}
     .guideAdded{background:#dcfce7;color:#166534;border-radius:999px;padding:3px 7px;font-size:11px;font-weight:850}
     @media(max-width:1120px){.grid{grid-template-columns:1fr}.navPanel,.sticky{position:static}.sticky{max-height:none;overflow:visible}.output{height:42vh}.navPanel{display:none}}
-    @media(max-width:720px){.wrap{padding:12px}.hero,.card{border-radius:8px;padding:14px}.editGrid{grid-template-columns:1fr}.sectionHead{display:block}.sectionTools{justify-content:flex-start}.btn{padding:9px 11px}.output{height:38vh}.guideFlow{grid-template-columns:1fr 1fr}}
+    @media(max-width:720px){.wrap{padding:12px}.hero,.card{border-radius:8px;padding:14px}.editGrid{grid-template-columns:1fr}.sectionHead{display:block}.sectionTools{justify-content:flex-start}.btn{padding:9px 11px}.output{height:38vh}.guideFlow{grid-template-columns:1fr 1fr}.optionWording{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -493,6 +503,33 @@ function cleanText(x){return String(x||'').replace(/\s+/g,' ').trim()}
 function esc(x){return String(x||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function id(x){return x.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,28)+'_'+Math.random().toString(36).slice(2,6)}
 function defaultFieldNote(f){return f.type==='text'||f.type==='short'?`${f.label}: {{value}}.`:`${f.label} included {{value}}.`}
+const BLOCK_LABELS={clinical:'Clinical note',interview:'Interview prompts',reference:'Reference-only guidance'};
+function lines(x){return String(x||'').split('\n').map(cleanText).filter(Boolean)}
+function blockLabel(type){return BLOCK_LABELS[type]||'Guidance'}
+function blockTitle(type){return blockLabel(type)}
+function makeBlock(type,position){return{id:id(type),type,position:position||'after',title:blockTitle(type),body:''}}
+function legacyBlocks(f){
+  const out=[];
+  if(f.help||f.info)out.push({id:id('clinical'),type:'clinical',position:'after',title:'Clinical note',body:f.help||f.info});
+  if(f.prompts&&f.prompts.length)out.push({id:id('interview'),type:'interview',position:'after',title:'Interview prompts',body:f.prompts.join('\n')});
+  if(f.reference)out.push({id:id('reference'),type:'reference',position:'after',title:'Reference-only guidance',body:f.reference});
+  return out;
+}
+function fieldBlocks(f,position){
+  const blocks=Array.isArray(f.contentBlocks)?f.contentBlocks:legacyBlocks(f);
+  return blocks.filter(b=>(b.position||'after')===position);
+}
+function renderContentBlock(b){
+  const type=b.type||'clinical';
+  const title=cleanText(b.title)||blockTitle(type);
+  const body=String(b.body||'');
+  const bodyHtml=type==='interview'
+    ? `<ul>${lines(body).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`
+    : `<p>${esc(body)}</p>`;
+  return `<details class="contentBlock ${type==='reference'?'referenceBlock':esc(type)}">
+    <summary>${esc(title)}</summary>${bodyHtml}
+  </details>`;
+}
 const NEGATIVE_VALUES=new Set(['none','none identified','no red flags','no current ideation','no obvious risk of violence','no safeguarding concerns presently','no clear change']);
 const NEGATIVE_NOTES={
   riskObserved:'No observed risk behaviours.',
@@ -534,9 +571,20 @@ function fieldNote(f){
   if(!rawValues.length)return'';
   const negative=negativeNoteFor(f,rawValues);
   if(negative)return negative;
-  const val=noteValues(f).join(', ');
+  const values=noteValues(f);
+  if(!values.length)return'';
+  const optionNotes=f.optionNotes||{};
+  if(values.some(v=>cleanText(optionNotes[v]))){
+    return values.map(v=>applyTemplate(optionNotes[v]||f.note||defaultFieldNote(f),{
+      id:f.id,
+      label:f.label,
+      value:cleanText(v).toLowerCase(),
+      rawValue:v
+    })).filter(Boolean).join(' ');
+  }
+  const val=values.join(', ').toLowerCase();
   if(!cleanText(val))return'';
-  return applyTemplate(f.note||defaultFieldNote(f),{id:f.id,label:f.label,value:val});
+  return applyTemplate(f.note||defaultFieldNote(f),{id:f.id,label:f.label,value:val,rawValue:values.join(', ')});
 }
 function sectionNote(sec){
   const fields=sec.fields.map(fieldNote).filter(Boolean);
@@ -598,8 +646,49 @@ function addAnswer(f,value){
   if(!v)return;
   f.options=f.options||[];
   if(!f.options.includes(v))f.options.push(v);
+  f.optionNotes=f.optionNotes||{};
+  f.optionNotes[v]=f.optionNotes[v]||applyTemplate(f.note||defaultFieldNote(f),{id:f.id,label:f.label,value:v.toLowerCase(),rawValue:v});
   saveSections();
   render(true);
+}
+function optionNoteEditor(f){
+  const options=f.options||[];
+  if(!options.length)return'<p class="muted wide" style="margin:0;font-size:13px">Text and short-answer fields use the main generated note wording above.</p>';
+  f.optionNotes=f.optionNotes||{};
+  return `<div class="wide"><div class="label">Generated wording for each answer</div><div class="optionWordings">
+    ${options.map(o=>`<div class="optionWording">
+      <div class="optionName">${esc(o)}</div>
+      <textarea data-option-note="${esc(o)}" placeholder="${esc(applyTemplate(f.note||defaultFieldNote(f),{id:f.id,label:f.label,value:o.toLowerCase(),rawValue:o}))}">${esc(f.optionNotes[o]||'')}</textarea>
+    </div>`).join('')}
+  </div><p class="muted" style="margin:6px 0 0;font-size:12px">Use {{value}} for the selected answer in lowercase, or {{rawValue}} for the original capitalisation.</p></div>`;
+}
+function blockEditorList(f){
+  const blocks=Array.isArray(f.contentBlocks)?f.contentBlocks:legacyBlocks(f);
+  f.contentBlocks=blocks;
+  return `<div class="wide"><div class="label">Clinical notes, interview prompts and reference guidance around this answer set</div>
+    <div class="row" style="justify-content:flex-start;margin-bottom:8px">
+      <button class="btn small secondary" data-a="addBlock" data-type="clinical" data-pos="before">Add clinical note above</button>
+      <button class="btn small secondary" data-a="addBlock" data-type="interview" data-pos="before">Add interview prompts above</button>
+      <button class="btn small secondary" data-a="addBlock" data-type="reference" data-pos="before">Add reference above</button>
+      <button class="btn small secondary" data-a="addBlock" data-type="clinical" data-pos="after">Add clinical note below</button>
+      <button class="btn small secondary" data-a="addBlock" data-type="interview" data-pos="after">Add interview prompts below</button>
+      <button class="btn small secondary" data-a="addBlock" data-type="reference" data-pos="after">Add reference below</button>
+    </div>
+    <div class="blockList">${blocks.length?blocks.map((b,bi)=>`<div class="blockEditor" data-block="${bi}">
+      <div class="editGrid">
+        <label>Type<select data-bk="type"><option value="clinical" ${b.type==='clinical'?'selected':''}>Clinical note</option><option value="interview" ${b.type==='interview'?'selected':''}>Interview prompts</option><option value="reference" ${b.type==='reference'?'selected':''}>Reference-only guidance</option></select></label>
+        <label>Position<select data-bk="position"><option value="before" ${b.position==='before'?'selected':''}>Above answers</option><option value="after" ${(b.position||'after')==='after'?'selected':''}>Below answers</option></select></label>
+        <label class="wide">Heading<input data-bk="title" value="${esc(b.title||blockTitle(b.type))}"></label>
+        <label class="wide">Text<textarea data-bk="body" placeholder="${b.type==='interview'?'One prompt per line':'Guidance text'}">${esc(b.body||'')}</textarea></label>
+      </div>
+      <div class="row" style="justify-content:flex-start;margin-top:8px">
+        <button class="btn small secondary" data-a="saveBlock" data-bi="${bi}">Save block</button>
+        <button class="btn small secondary" data-a="blockUp" data-bi="${bi}">Move up</button>
+        <button class="btn small secondary" data-a="blockDown" data-bi="${bi}">Move down</button>
+        <button class="btn small danger" data-a="delBlock" data-bi="${bi}">Delete block</button>
+      </div>
+    </div>`).join(''):'<p class="muted" style="margin:0;font-size:13px">No guidance blocks yet. Add one above or below this answer set.</p>'}</div>
+  </div>`;
 }
 function fieldEditor(si,fi,f){
   const d=document.createElement('div');
@@ -609,22 +698,33 @@ function fieldEditor(si,fi,f){
     <label>Type<select data-k="type"><option>multi</option><option>single</option><option>short</option><option>text</option></select></label>
     <label class="wide">Answer options, comma-separated<input data-k="options" value="${esc((f.options||[]).join(', '))}"></label>
     <label class="wide">Generated note wording<textarea data-k="note">${esc(f.note||defaultFieldNote(f))}</textarea></label>
-    <label class="wide">Help text<textarea data-k="help">${esc(f.help||f.info||'')}</textarea></label>
-    <label class="wide">Interview prompts, one per line<textarea data-k="prompts">${esc((f.prompts||[]).join('\n'))}</textarea></label>
+    ${optionNoteEditor(f)}
+    ${blockEditorList(f)}
     <label class="wide">Flags, comma-separated<input data-k="flags" value="${esc((f.flags||[]).join(', '))}"></label>
   </div><div class="row" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-a="save">Save field</button><button class="btn small danger" data-a="del">Delete</button></div>`;
   d.querySelector('[data-k=type]').value=f.type;
   d.onclick=e=>{
     const a=e.target.dataset.a;if(!a)return;
     if(a==='del'&&confirm('Delete field?'))sections[si].fields.splice(fi,1);
+    if(a==='addBlock'){
+      f.contentBlocks=f.contentBlocks||[];
+      f.contentBlocks.push(makeBlock(e.target.dataset.type,e.target.dataset.pos));
+    }
+    if(a==='saveBlock'){
+      const bi=Number(e.target.dataset.bi),box=d.querySelector(`[data-block="${bi}"]`),b=f.contentBlocks[bi];
+      if(b&&box){b.type=box.querySelector('[data-bk=type]').value;b.position=box.querySelector('[data-bk=position]').value;b.title=box.querySelector('[data-bk=title]').value||blockTitle(b.type);b.body=box.querySelector('[data-bk=body]').value}
+    }
+    if(a==='blockUp'){const bi=Number(e.target.dataset.bi);if(bi>0){const b=f.contentBlocks.splice(bi,1)[0];f.contentBlocks.splice(bi-1,0,b)}}
+    if(a==='blockDown'){const bi=Number(e.target.dataset.bi);if(bi<f.contentBlocks.length-1){const b=f.contentBlocks.splice(bi,1)[0];f.contentBlocks.splice(bi+1,0,b)}}
+    if(a==='delBlock'&&confirm('Delete this guidance block?'))f.contentBlocks.splice(Number(e.target.dataset.bi),1);
     if(a==='save'){
       f.label=d.querySelector('[data-k=label]').value||f.label;
       f.type=d.querySelector('[data-k=type]').value;
       f.options=d.querySelector('[data-k=options]').value.split(',').map(x=>x.trim()).filter(Boolean);
       f.note=d.querySelector('[data-k=note]').value||defaultFieldNote(f);
-      f.help=d.querySelector('[data-k=help]').value;
-      f.info=f.help;
-      f.prompts=d.querySelector('[data-k=prompts]').value.split('\n').map(x=>x.trim()).filter(Boolean);
+      f.optionNotes={};
+      d.querySelectorAll('[data-option-note]').forEach(el=>{if(cleanText(el.value))f.optionNotes[el.dataset.optionNote]=el.value});
+      f.help='';f.info='';f.prompts=[];f.reference='';
       f.flags=d.querySelector('[data-k=flags]').value.split(',').map(x=>x.trim()).filter(Boolean);
     }
     saveSections();render(true);
@@ -643,7 +743,7 @@ function sectionEditor(si,sec){
   t.onclick=e=>{
     const a=e.target.dataset.a;if(!a)return;
     if(a==='save'){sec.title=document.getElementById('st'+si).value||sec.title;sec.helper=document.getElementById('sh'+si).value;sec.summaryTemplate=document.getElementById('sf'+si).value;sec.reference=document.getElementById('sr'+si).value}
-    if(a==='add'){const l=prompt('New field label');if(l)sec.fields.push({id:id(l),label:l,type:'multi',options:['Option 1'],note:'{{label}}: {{value}}.'})}
+    if(a==='add'){const l='New answer set';sec.fields.push({id:id(l),label:l,type:'multi',options:['Option 1'],note:'{{label}}: {{value}}.'})}
     if(a==='up'&&si>0){sections.splice(si,1);sections.splice(si-1,0,sec)}
     if(a==='down'&&si<sections.length-1){sections.splice(si,1);sections.splice(si+1,0,sec)}
     if(a==='del'&&confirm('Delete section?'))sections.splice(si,1);
@@ -671,6 +771,7 @@ function render(keep=false){
       const d=document.createElement('div');
       d.className='field';
       d.innerHTML=`<div class="label">${esc(f.label)} ${edit?'<span class="pill">editable</span>':''}</div>`;
+      fieldBlocks(f,'before').forEach(b=>d.insertAdjacentHTML('beforeend',renderContentBlock(b)));
       if(f.type==='text'||f.type==='short'){
         const el=document.createElement(f.type==='text'?'textarea':'input');
         el.placeholder=f.type==='text'?'Add clinical detail...':'Type here...';
@@ -694,8 +795,7 @@ function render(keep=false){
         add.querySelector('button').onclick=()=>addAnswer(f,add.querySelector('input').value);
         d.appendChild(add);
       }
-      if(f.help||f.info){const det=document.createElement('details');det.innerHTML=`<summary>Clinical note</summary><p>${esc(f.help||f.info)}</p>`;d.appendChild(det)}
-      if(f.prompts&&f.prompts.length){const det=document.createElement('details');det.innerHTML=`<summary>Interview prompts</summary><ul>${f.prompts.map(p=>`<li>${esc(p)}</li>`).join('')}</ul>`;d.appendChild(det)}
+      fieldBlocks(f,'after').forEach(b=>d.insertAdjacentHTML('beforeend',renderContentBlock(b)));
       if(f.flags&&f.flags.length){const flags=document.createElement('div');flags.className='flagRow';flags.innerHTML=f.flags.map(x=>`<span class="flag ${esc(x)}">${esc(x)}</span>`).join('');d.appendChild(flags)}
       if(edit)d.appendChild(fieldEditor(si,fi,f));
       c.appendChild(d);
@@ -705,9 +805,9 @@ function render(keep=false){
   if(edit){
     const add=document.createElement('div');
     add.className='card';
-    add.innerHTML='<button class="btn" id="addSectionBtn">Add new section</button>';
+    add.innerHTML='<button class="btn" id="addSectionBtn">Add new clinical note section</button>';
     form.appendChild(add);
-    addSectionBtn.onclick=()=>{const title=prompt('New section title');if(title){sections.push({title,helper:'',reference:'',summaryTemplate:'{{title}}: {{fields}}',fields:[]});saveSections();render(true)}};
+    addSectionBtn.onclick=()=>{sections.push({title:'New clinical note section',helper:'',reference:'',summaryTemplate:'{{title}}: {{fields}}',fields:[]});saveSections();render(true)};
   }
   gen();showSug();renderNav();renderGuides();
 }
