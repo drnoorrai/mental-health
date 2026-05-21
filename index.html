@@ -527,9 +527,14 @@ const FIELD_DEFAULT_OVERRIDES={
   }
 };
 const FIELD_DEFAULT_OVERRIDES_LATEST={
-  baseline:{optionNotes:{'No clear change':'No clear change to baseline.','Clear change from baseline':'There was a clear change from baseline.','Unknown baseline':"The patient's baseline is unknown."}},
-  selfCare:{optionNotes:{Good:'Self-care was good.',Reduced:'Self-care appeared reduced.',Neglected:'Self-care appeared neglected.','Marked deterioration':'There was a marked deterioration in self-care.'}},
-  dress:{comboNotes:{'appropriate||bizarre':'Dress was appropriate although bizarre.','appropriate||bizarre||flamboyant':'Dress was appropriate, although somewhat bizarre and flamboyant.','disinhibited||unkempt':'Dress was disinhibited and unkempt.'}},
+  baseline:{
+    help:'',
+    prompts:[],
+    optionNotes:{'No clear change':'Baseline change was recorded as no clear change.','Clear change from baseline':'Baseline change was recorded as clear change from baseline.','Unknown baseline':'Baseline change was recorded as unknown baseline.'},
+    contentBlocks:[{id:'clinical_baseline_default',type:'clinical',position:'after',title:'Clinical note',body:'Change from baseline can be more clinically meaningful than absolute appearance. Mania often presents as an acute departure from baseline with flamboyant dress, agitation, disinhibition and risk behaviours. Psychosis may show suspiciousness, guardedness or odd behaviour while consciousness remains clear.'}]
+  },
+  selfCare:{optionNotes:{Good:'Self-care appeared good.',Reduced:'Self-care appeared reduced.',Neglected:'Self-care appeared neglected.','Marked deterioration':'There was a marked deterioration in self-care.'}},
+  dress:{comboNotes:{'appropriate||bizarre':'Dress was appropriate although bizarre.','appropriate||bizarre||flamboyant':'Dress was appropriate, although somewhat bizarre and flamboyant.','disinhibited||unkempt':'Dress was disinhibited and unkempt.','bizarre||flamboyant||disinhibited':'Dress was strikingly unusual and disinhibited.'}},
   engagement:{
     optionNotes:{Good:'Engagement was good.',Guarded:'Engagement was guarded.',Suspicious:'Engagement was suspicious.',Hostile:'Engagement was hostile.',Intrusive:'Engagement was intrusive.',Overfamiliar:'Engagement was overfamiliar.'},
     comboNotes:{'intrusive||overfamiliar':'Engagement was intrusive and overfamiliar.'}
@@ -547,6 +552,7 @@ const FIELD_DEFAULT_OVERRIDES_LATEST={
     optionNotes:{Low:'Subjectively, mood was low.',Euthymic:'Subjectively, mood was euthymic.',Elevated:'Subjectively, mood was elevated.',Expansive:'Subjectively, mood was expansive.',Irritable:'Subjectively, mood was irritable.',Anxious:'Subjectively, mood was anxious.',Labile:'Subjectively, mood was labile.',Hopeless:'Subjectively, mood was hopeless.'},
     comboNotes:{'irritable||anxious||labile':'Subjectively, mood was irritable, anxious, and labile.'}
   },
+  affect:{optionNotes:{Congruent:'Objectively, affect was congruent.',Incongruent:'Objectively, affect was incongruent.',Reactive:'Objectively, affect was reactive.',Blunted:'Objectively, affect was blunted.',Flat:'Objectively, affect was flat.',Labile:'Objectively, affect was labile.',Expansive:'Objectively, affect was expansive.',Tearful:'Objectively, affect was tearful.'}},
   biological:{
     optionNotes:{None:'The patient did not report any biological symptoms or medication side effects.','Reduced sleep':'Biological symptoms and medication side effects included reduced sleep.','Increased sleep':'Biological symptoms and medication side effects included increased sleep.','Reduced need for sleep':'Biological symptoms and medication side effects included reduced need for sleep.','Early morning waking':'Biological symptoms and medication side effects included early morning waking.',Hypersomnia:'Biological symptoms and medication side effects included hypersomnia.','Reduced appetite':'Biological symptoms and medication side effects included reduced appetite.','Increased appetite':'Biological symptoms and medication side effects included increased appetite.','Weight loss':'Biological symptoms and medication side effects included weight loss.','Weight gain':'Biological symptoms and medication side effects included weight gain.','Reduced energy':'Biological symptoms and medication side effects included reduced energy.',Anhedonia:'Biological symptoms and medication side effects included anhedonia.','Reduced libido':'Biological symptoms and medication side effects included reduced libido.','Reduced concentration':'Biological symptoms and medication side effects included reduced concentration.','Diurnal mood variation':'Biological symptoms and medication side effects included diurnal mood variation.','Leaden paralysis':'Biological symptoms and medication side effects included leaden paralysis.',Hypersalivation:'Biological symptoms and medication side effects included hypersalivation.',Tachycardia:'Biological symptoms and medication side effects included tachycardia.',Palpitations:'Biological symptoms and medication side effects included palpitations.',Dizziness:'Biological symptoms and medication side effects included dizziness.',Constipation:'Biological symptoms and medication side effects included constipation.','Akathisia/restlessness':'Biological symptoms and medication side effects included akathisia/restlessness.'},
     comboNotes:{'reduced sleep||weight gain||reduced concentration||diurnal mood variation':'Biological symptoms and medication side effects included reduced sleep, weight gain, reduced concentration, and diurnal mood variation.'}
@@ -566,7 +572,7 @@ const FIELD_DEFAULT_OVERRIDES_LATEST={
   intensity:{optionNotes:{Fixed:'Conviction was fixed.','High conviction':'Conviction was high.','Partial doubt':'Conviction was associated with partial doubt.','Can consider alternative explanations':'The patient could consider alternative explanations.','Overvalued idea':'Conviction was consistent with an overvalued idea.'}},
   negativeTriad:{optionNotes:{Worthlessness:'Depressive thought content included worthlessness.',Hopelessness:'Depressive thought content included hopelessness.',Guilt:'Depressive thought content included guilt.','Self-blame':'Depressive thought content included self-blame.',Nihilism:'Depressive thought content included nihilism.',Rumination:'Depressive thought content included rumination.','No future':'Depressive thought content included a sense of having no future.'},comboNotes:{'worthlessness||hopelessness':'Depressive thought content included worthlessness and hopelessness.'}},
   frs:{optionNotes:{None:'No passivity or first-rank symptoms were elicited.','Thought insertion':'Passivity/first-rank symptoms included thought insertion.','Thought withdrawal':'Passivity/first-rank symptoms included thought withdrawal.','Thought broadcasting':'Passivity/first-rank symptoms included thought broadcasting.','Made actions':'Passivity/first-rank symptoms included made actions.','Made feelings':'Passivity/first-rank symptoms included made feelings.','Made impulses':'Passivity/first-rank symptoms included made impulses.','Thought echo':'Passivity/first-rank symptoms included thought echo.','Running commentary':'Passivity/first-rank symptoms included running commentary.','Voices arguing':'Passivity/first-rank symptoms included voices arguing.'},comboNotes:{'thought insertion||thought withdrawal||thought broadcasting':'Passivity and first-rank symptoms included thought insertion, thought withdrawal, and thought broadcasting.'}},
-  frsNotes:{label:'Verbatim example',note:'Passivity phenomena verbatim example: {{value}}.'},
+  frsNotes:{label:'Notes',note:'Passivity phenomena notes: {{value}}.'},
   auditory:{optionNotes:{None:'No auditory phenomena were reported.','Second-person voices':'Auditory phenomena included second-person voices.','Third-person voices':'Auditory phenomena included third-person voices.','Running commentary':'Auditory phenomena included running commentary.','Thought echo':'Auditory phenomena included thought echo.','Voices arguing':'Auditory phenomena included voices arguing.','Command hallucinations':'Auditory phenomena included command hallucinations.','Mood-congruent accusatory voices':'Auditory phenomena included mood-congruent accusatory voices.','Mood-congruent grandiose voices':'Auditory phenomena included mood-congruent grandiose voices.'},comboNotes:{'third-person voices||running commentary':'Auditory phenomena included third-person voices and running commentary.'}},
   voiceFeatures:{optionNotes:{Distressing:'Voice-related features included distress.',Frequent:'Voice-related features included frequent occurrence.','Recognised voice':'Voice-related features included a recognised voice.','Internal subjective space':'Voice-related features included internal subjective space.','External space':'Voice-related features included external space.','Retained insight':'Voice-related features included retained insight.','Poor insight':'Voice-related features included poor insight.'},comboNotes:{'distressing||recognised voice||internal subjective space':'Voice-related features included distress, a recognised voice, and internal subjective space.'}},
   commandHallucinations:{optionNotes:{None:'No command hallucinations were identified.','Content elicited':'Command hallucination content was elicited.','Compulsion to obey':'Command hallucination assessment identified compulsion to obey.','Past compliance':'Command hallucination assessment identified past compliance.','Specific target':'Command hallucination assessment identified a specific target.','Access to means':'Command hallucination assessment identified access to means.','Can resist commands':'The patient reported being able to resist commands.','Cannot resist commands':'The patient reported being unable to resist commands.'}},
@@ -588,6 +594,11 @@ const FIELD_DEFAULT_OVERRIDES_LATEST={
   referenceReminders:{note:'Guideline reminders considered: {{value}}.',optionNotes:{'NICE CG178 psychosis monitoring':'Guideline reminders considered: NICE CG178 psychosis monitoring.','NICE NG225 self-harm/risk judgement':'Guideline reminders considered: NICE NG225 self-harm/risk judgement.','MCA understand-retain-use/weigh-communicate':'Guideline reminders considered: MCA understand-retain-use/weigh-communicate.','Organic red flags screen':'Guideline reminders considered: organic red flags screen.','EIP referral standard':'Guideline reminders considered: EIP referral standard.','CBTp/family intervention reminder':'Guideline reminders considered: CBTp/family intervention reminder.','Antipsychotic side-effect discussion':'Guideline reminders considered: antipsychotic side-effect discussion.','Physical health monitoring':'Guideline reminders considered: physical health monitoring.','EPS screen':'Guideline reminders considered: EPS screen.','Lithium monitoring reminder':'Guideline reminders considered: lithium monitoring reminder.','MHRA valproate under-55 restriction':'Guideline reminders considered: MHRA valproate under-55 restriction.','Valproate PPP reminder':'Guideline reminders considered: valproate PPP reminder.','Clozapine pathway reminder':'Guideline reminders considered: clozapine pathway reminder.','MHA/MCA interface reminder':'Guideline reminders considered: MHA/MCA interface reminder.'},comboNotes:{'physical health monitoring||eps screen||lithium monitoring reminder||mhra valproate under-55 restriction||valproate ppp reminder':'Guideline reminders considered included physical health monitoring, EPS screen, lithium monitoring reminder, MHRA valproate under-55 restriction, and valproate PPP reminder.'}},
   primarySyndrome:{optionNotes:{Psychotic:'A primary psychotic syndrome was considered.',Affective:'A primary affective syndrome was considered.',Organic:'A primary organic syndrome was considered.',Mixed:'A primary mixed syndrome was considered.','Substance-related':'A primary substance-related syndrome was considered.','Trauma-related':'A primary trauma-related syndrome was considered.',Unclear:'The primary syndrome was unclear.'}}
 };
+const SECTION_DEFAULT_OVERRIDES={
+  'Appearance & Behaviour':{helper:'',reference:'',referenceBlocks:[]},
+  Speech:{reference:'',referenceBlocks:[]},
+  'Thought — Content':{reference:''}
+};
 Object.keys(FIELD_DEFAULT_OVERRIDES_LATEST).forEach(k=>{
   FIELD_DEFAULT_OVERRIDES[k]={...(FIELD_DEFAULT_OVERRIDES[k]||{}),...FIELD_DEFAULT_OVERRIDES_LATEST[k]};
   if(FIELD_DEFAULT_OVERRIDES[k].optionNotes||FIELD_DEFAULT_OVERRIDES_LATEST[k].optionNotes){
@@ -598,10 +609,13 @@ Object.keys(FIELD_DEFAULT_OVERRIDES_LATEST).forEach(k=>{
   }
 });
 function applyDefaultOverrides(){
-  DEFAULT_SECTIONS.forEach(sec=>sec.fields.forEach(f=>{
-    const o=FIELD_DEFAULT_OVERRIDES[f.id];
-    if(o)Object.assign(f,o);
-  }));
+  DEFAULT_SECTIONS.forEach(sec=>{
+    Object.assign(sec,SECTION_DEFAULT_OVERRIDES[sec.title]||{});
+    sec.fields.forEach(f=>{
+      const o=FIELD_DEFAULT_OVERRIDES[f.id];
+      if(o)Object.assign(f,o);
+    });
+  });
 }
 applyDefaultOverrides();
 let sections=loadSections(),state={},edit=false,studyMode=false,noteTemplate=loadTemplate(),guideReminders=[];
@@ -614,7 +628,13 @@ function mergeOptions(def,saved){
 }
 function cleanMergedOptions(fieldId,options){
   if(fieldId==='baseline')return (DEFAULT_SECTIONS[0].fields.find(f=>f.id==='baseline')?.options||options).slice();
-  return options.filter(o=>!(fieldId==='psychomotor'&&o==='Retardation'));
+  return options.filter(o=>!(fieldId==='psychomotor'&&o==='Retardation')&&!(fieldId==='suicide'&&o==='Plan')&&o!=='Test');
+}
+function cleanOptionNotes(notes){
+  return Object.fromEntries(Object.entries(notes||{}).filter(([k])=>k!=='Test'));
+}
+function cleanComboNotes(notes){
+  return Object.fromEntries(Object.entries(notes||{}).filter(([k])=>!k.split('||').includes('test')));
 }
 function normalizeSections(raw){
   if(!Array.isArray(raw))return clone(DEFAULT_SECTIONS);
@@ -629,8 +649,8 @@ function normalizeSections(raw){
         ...f,
         ...savedField,
         options,
-        optionNotes:{...(f.optionNotes||{}),...(savedField.optionNotes||{})},
-        comboNotes:{...(f.comboNotes||{}),...(savedField.comboNotes||{})}
+        optionNotes:cleanOptionNotes({...(f.optionNotes||{}),...(savedField.optionNotes||{})}),
+        comboNotes:cleanComboNotes({...(f.comboNotes||{}),...(savedField.comboNotes||{})})
       };
     });
     const extras=(saved.fields||[]).filter(f=>f&&f.id&&!fields.some(x=>x.id===f.id));
