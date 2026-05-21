@@ -74,7 +74,6 @@
     .editing .inlineAdd{display:flex}
     .toast{min-height:22px;color:#166534;font-weight:800;font-size:13px}
     .savedFlash{box-shadow:0 0 0 3px #86efac;background:#166534!important;color:#fff!important}
-    .reviewHidden{display:none}
     body:not(.studyMode) .contentBlock,body:not(.studyMode) .quickRefCard{display:none}
     .guideIntro{margin:0 0 10px;font-size:13px;color:#64748b}
     .guide{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;margin-top:8px;padding:0;color:#334155}
@@ -163,13 +162,10 @@
         <div class="sectionHead">
           <div>
             <h2>Generated clinical note</h2>
-            <p class="muted">Copy into your clinical record, then edit as needed.</p>
           </div>
         </div>
         <div class="toolbar">
           <button class="btn" id="copyBtn">Copy note</button>
-          <button class="btn secondary" id="copyRiskBtn">Copy risk summary</button>
-          <label class="toggle"><input type="checkbox" id="reviewOnlyToggle"> Only show selected sections</label>
         </div>
         <div class="toast" id="toast"></div>
         <textarea id="output" class="output" readonly></textarea>
@@ -608,7 +604,7 @@ function applyDefaultOverrides(){
   }));
 }
 applyDefaultOverrides();
-let sections=loadSections(),state={},edit=false,studyMode=false,noteTemplate=loadTemplate(),reviewOnly=false,guideReminders=[];
+let sections=loadSections(),state={},edit=false,studyMode=false,noteTemplate=loadTemplate(),guideReminders=[];
 const fieldIndex=()=>sections.flatMap((s,si)=>s.fields.map((f,fi)=>({section:s,field:f,si,fi})));
 function byId(items){return Object.fromEntries((items||[]).filter(x=>x&&x.id).map(x=>[x.id,x]))}
 function mergeOptions(def,saved){
@@ -838,7 +834,7 @@ function gen(){
   const notes=sections.map(sectionNote).filter(Boolean);
   const guide=guideNote();
   if(guide)notes.push(guide);
-  const m={sections:notes.join('\n\n\n'),riskSummary:riskSummary(),organicRedFlags:selectedOrganicRedFlags()};
+  const m={sections:notes.join('\n\n'),riskSummary:riskSummary(),organicRedFlags:selectedOrganicRedFlags()};
   sections.forEach(sec=>{m[sectionKey(sec.title)]=sectionNote(sec);sec.fields.forEach(f=>m[f.id]=displayValue(state[f.id]))});
   output.value=applyTemplate(noteTemplate,m);
   renderNav();
@@ -1048,9 +1044,8 @@ function render(keep=false){
   editBar.classList.toggle('on',edit);
   sections.forEach((sec,si)=>{
     const selected=hasAnswer(sec);
-    const hidden=reviewOnly&&!selected;
     const c=document.createElement('div');
-    c.className='card'+(hidden?' reviewHidden':'');
+    c.className='card';
     c.id='sec_'+si;
     c.innerHTML=`<div class="sectionHead"><div><h2>${esc(sec.title)}</h2>${sec.helper?`<p class="help">${esc(sec.helper)}</p>`:''}</div><div class="sectionTools">${selected?'<span class="pill">selected</span>':''}</div></div>`;
     sectionBlocks(sec).forEach(b=>c.insertAdjacentHTML('beforeend',renderContentBlock(b)));
@@ -1129,9 +1124,7 @@ exportBtn.onclick=()=>{configBox.value=JSON.stringify({sections,suggestions:gs()
 importBtn.onclick=()=>{try{const p=JSON.parse(configBox.value);sections=normalizeSections(validateConfig(p));if(p.suggestions)ss(p.suggestions);if(p.noteTemplate){noteTemplate=p.noteTemplate;saveTemplate();noteTemplateBox.value=noteTemplate}guideReminders=[];saveSections();render(false);importStatus.textContent='Imported successfully.'}catch(e){importStatus.textContent='Import failed: '+e.message}};
 factoryBtn.onclick=()=>{if(confirm('Reset app structure, templates and meeting suggestions in this browser? Patient answers will also clear.')){localStorage.removeItem(KEY);localStorage.removeItem(SKEY);localStorage.removeItem(TKEY);sections=clone(DEFAULT_SECTIONS);noteTemplate=DEFAULT_NOTE_TEMPLATE;guideReminders=[];noteTemplateBox.value=noteTemplate;render(false);setToast('Factory reset complete')}};
 copyBtn.onclick=async()=>{await navigator.clipboard.writeText(output.value);setToast('Note copied')};
-copyRiskBtn.onclick=async()=>{await navigator.clipboard.writeText(riskSummary());setToast('Risk summary copied')};
 resetAnswersBtn.onclick=()=>{guideReminders=[];render(false)};
-reviewOnlyToggle.onchange=e=>{reviewOnly=e.target.checked;render(true)};
 noteTemplateBox.value=noteTemplate;
 noteTemplateBox.oninput=()=>{noteTemplate=noteTemplateBox.value||DEFAULT_NOTE_TEMPLATE;saveTemplate();gen()};
 resetTemplateBtn.onclick=()=>{if(confirm('Restore the default generated note format?')){noteTemplate=DEFAULT_NOTE_TEMPLATE;saveTemplate();noteTemplateBox.value=noteTemplate;gen()}};
