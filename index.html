@@ -575,6 +575,38 @@ function templateValue(v,fb){
   return cleanText(raw)?raw.trim():cleanText(fb);
 }
 function applyTemplate(t,m){return tidyNote(String(t||'').replace(/\{\{\s*([a-zA-Z0-9_]+)(?:\|([^}]*))?\s*\}\}/g,(a,k,fb)=>templateValue(m[k],fb)))}
+function optionOrder(f,v){return (f.options||[]).indexOf(v)}
+function orderedValues(f,values){
+  return [...values].sort((a,b)=>{
+    const ai=optionOrder(f,a),bi=optionOrder(f,b);
+    if(ai<0&&bi<0)return a.localeCompare(b);
+    if(ai<0)return 1;
+    if(bi<0)return -1;
+    return ai-bi;
+  });
+}
+function phraseList(values){
+  const list=values.map(v=>cleanText(v).toLowerCase()).filter(Boolean);
+  if(list.length<3)return list.join(' and ');
+  return `${list.slice(0,-1).join(', ')}, and ${list.at(-1)}`;
+}
+function rawPhraseList(values){
+  if(values.length<3)return values.join(' and ');
+  return `${values.slice(0,-1).join(', ')}, and ${values.at(-1)}`;
+}
+function comboKeyFor(f,values){return orderedValues(f,values).map(v=>cleanText(v).toLowerCase()).join('||')}
+function comboNoteText(f,values){
+  const ordered=orderedValues(f,values);
+  const key=comboKeyFor(f,ordered);
+  const saved=f.comboNotes?.[key];
+  if(cleanText(saved))return saved;
+  return applyTemplate(f.note||defaultFieldNote(f),{
+    id:f.id,
+    label:f.label,
+    value:phraseList(ordered),
+    rawValue:rawPhraseList(ordered)
+  });
+}
 function fieldNote(f){
   const rawValues=selectedValues(f);
   if(!rawValues.length)return'';
@@ -582,6 +614,7 @@ function fieldNote(f){
   if(negative)return negative;
   const values=noteValues(f);
   if(!values.length)return'';
+  if(f.type==='multi'&&values.length>1)return comboNoteText(f,values);
   const optionNotes=f.optionNotes||{};
   if(values.some(v=>cleanText(optionNotes[v]))){
     return values.map(v=>applyTemplate(optionNotes[v]||f.note||defaultFieldNote(f),{
@@ -665,9 +698,20 @@ function optionNoteText(f,o){
 }
 function generatedPreview(f){
   const values=noteValues(f);
-  if(values.length>1)return values.map(v=>optionNoteText(f,v)).join(' ');
+  if(f.type==='multi'&&values.length>1)return comboNoteText(f,values);
   if(values.length===1)return optionNoteText(f,values[0]);
   return (f.options||[]).slice(0,2).map(o=>optionNoteText(f,o)).join(' ');
+}
+function comboNoteEditor(f){
+  const values=noteValues(f);
+  if(f.type!=='multi'||values.length<2)return'';
+  const key=comboKeyFor(f,values);
+  return `<div class="wide blockEditor">
+    <div class="label">Generated wording for this selected combination</div>
+    <p class="muted" style="margin:0 0 8px;font-size:12px">${esc(orderedValues(f,values).join(' + '))}</p>
+    <textarea data-combo-note="${esc(key)}">${esc(comboNoteText(f,values))}</textarea>
+    <p class="muted" style="margin:6px 0 0;font-size:12px">This sentence is used only when this exact combination of answers is selected.</p>
+  </div>`;
 }
 function optionNoteEditor(f){
   const options=f.options||[];
@@ -678,7 +722,7 @@ function optionNoteEditor(f){
       <div class="optionName">${esc(o)}</div>
       <textarea data-option-note="${esc(o)}">${esc(optionNoteText(f,o))}</textarea>
     </div>`).join('')}
-  </div><div class="reference" style="margin-top:8px"><strong>Selected-answer preview:</strong> ${esc(generatedPreview(f)||'Select answers to preview combined wording.')}</div><p class="muted" style="margin:6px 0 0;font-size:12px">Use {{value}} for the selected answer in lowercase, or {{rawValue}} for the original capitalisation.</p></div>`;
+  </div>${comboNoteEditor(f)}<div class="reference" style="margin-top:8px"><strong>Selected-answer preview:</strong> ${esc(generatedPreview(f)||'Select answers to preview combined wording.')}</div><p class="muted" style="margin:6px 0 0;font-size:12px">Use {{value}} for the selected answer in lowercase, or {{rawValue}} for the original capitalisation.</p></div>`;
 }
 function blockEditorList(f){
   const blocks=Array.isArray(f.contentBlocks)?f.contentBlocks:legacyBlocks(f);
@@ -765,6 +809,8 @@ function fieldEditor(si,fi,f){
       f.note=d.querySelector('[data-k=note]').value||defaultFieldNote(f);
       f.optionNotes={};
       d.querySelectorAll('[data-option-note]').forEach(el=>{if(cleanText(el.value))f.optionNotes[el.dataset.optionNote]=el.value});
+      f.comboNotes=f.comboNotes||{};
+      d.querySelectorAll('[data-combo-note]').forEach(el=>{if(cleanText(el.value))f.comboNotes[el.dataset.comboNote]=el.value});
       f.help='';f.info='';f.prompts=[];f.reference='';
       f.flags=d.querySelector('[data-k=flags]').value.split(',').map(x=>x.trim()).filter(Boolean);
       saveFeedback(e.target,'Answer set saved');
